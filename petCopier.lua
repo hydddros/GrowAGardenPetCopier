@@ -1,37 +1,80 @@
+--// ReplicatedStorage Setup (Ensure this is in the game)
+-- RemoteEvent: AddPetToInventory
+-- Folder: PetModels (contains pet model instances)
+
+--// LocalScript (e.g., inside StarterPlayerScripts or ScreenGui)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
--- UI Setup
+-- UI Creation
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "PetCopierUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 320, 0, 220)
-frame.Position = UDim2.new(0.5, -160, 0.5, -110)
+frame.Size = UDim2.new(0, 320, 0, 260)
+frame.Position = UDim2.new(0.5, -160, 0.5, -130)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
--- Pet Name Input
-local petNameBox = Instance.new("TextBox")
-petNameBox.Size = UDim2.new(0, 300, 0, 40)
-petNameBox.Position = UDim2.new(0, 10, 0, 10)
-petNameBox.PlaceholderText = "Enter pet name (e.g. Raccoon)"
-petNameBox.TextColor3 = Color3.new(1,1,1)
-petNameBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-petNameBox.Font = Enum.Font.SourceSansBold
-petNameBox.TextSize = 22
-petNameBox.ClearTextOnFocus = false
-petNameBox.Parent = frame
+-- Dropdown (Pet List)
+local dropdown = Instance.new("TextButton")
+dropdown.Size = UDim2.new(0, 300, 0, 40)
+dropdown.Position = UDim2.new(0, 10, 0, 10)
+dropdown.Text = "Select Pet"
+dropdown.TextColor3 = Color3.new(1,1,1)
+dropdown.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+dropdown.Parent = frame
+
+local selectedPetName = ""
+
+-- Dropdown functionality
+local petListFrame = Instance.new("Frame")
+petListFrame.Size = UDim2.new(0, 300, 0, 120)
+petListFrame.Position = UDim2.new(0, 10, 0, 50)
+petListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+petListFrame.Visible = false
+petListFrame.Parent = frame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = petListFrame
+
+local function refreshPetList()
+	petListFrame:ClearAllChildren()
+	UIListLayout.Parent = petListFrame
+
+	for _, model in ipairs(ReplicatedStorage:WaitForChild("PetModels"):GetChildren()) do
+		if model:IsA("Model") then
+			local petButton = Instance.new("TextButton")
+			petButton.Size = UDim2.new(1, 0, 0, 30)
+			petButton.Text = model.Name
+			petButton.TextColor3 = Color3.new(1,1,1)
+			petButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+			petButton.Parent = petListFrame
+
+			petButton.MouseButton1Click:Connect(function()
+				selectedPetName = model.Name
+				dropdown.Text = "Pet: " .. selectedPetName
+				petListFrame.Visible = false
+			end)
+		end
+	end
+end
+
+refreshPetList()
+
+dropdown.MouseButton1Click:Connect(function()
+	petListFrame.Visible = not petListFrame.Visible
+end)
 
 -- Kilogram Input
 local kgBox = Instance.new("TextBox")
 kgBox.Size = UDim2.new(0, 140, 0, 40)
-kgBox.Position = UDim2.new(0, 10, 0, 60)
+kgBox.Position = UDim2.new(0, 10, 0, 180)
 kgBox.PlaceholderText = "Kilogram (e.g. 7.5)"
 kgBox.TextColor3 = Color3.new(1,1,1)
 kgBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -43,7 +86,7 @@ kgBox.Parent = frame
 -- Age Input
 local ageBox = Instance.new("TextBox")
 ageBox.Size = UDim2.new(0, 140, 0, 40)
-ageBox.Position = UDim2.new(0, 170, 0, 60)
+ageBox.Position = UDim2.new(0, 170, 0, 180)
 ageBox.PlaceholderText = "Age (e.g. 2)"
 ageBox.TextColor3 = Color3.new(1,1,1)
 ageBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -55,192 +98,68 @@ ageBox.Parent = frame
 -- Copy Button
 local button = Instance.new("TextButton")
 button.Size = UDim2.new(0, 300, 0, 45)
-button.Position = UDim2.new(0, 10, 0, 110)
-button.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-button.Font = Enum.Font.SourceSansBold
-button.TextSize = 26
+button.Position = UDim2.new(0, 10, 0, 230)
+button.Text = "Add Pet"
 button.TextColor3 = Color3.new(1,1,1)
-button.Text = "Copy Pet"
+button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+button.Font = Enum.Font.SourceSansBold
+button.TextSize = 22
 button.Parent = frame
 
--- Info Label
-local infoLabel = Instance.new("TextLabel")
-infoLabel.Size = UDim2.new(0, 300, 0, 50)
-infoLabel.Position = UDim2.new(0, 10, 0, 160)
-infoLabel.BackgroundTransparency = 1
-infoLabel.TextColor3 = Color3.fromRGB(220,220,220)
-infoLabel.Font = Enum.Font.SourceSansItalic
-infoLabel.TextSize = 18
-infoLabel.Text = ""
-infoLabel.Parent = frame
-
-
--- Helper to parse number inputs safely
-local function parseNumberInput(inputText, defaultValue)
-    local num = tonumber(inputText)
-    if num == nil then
-        return defaultValue
-    else
-        return num
-    end
-end
-
-
--- Recursive function to find pet model by name inside containers
-local function findPetModelByNameRecursive(container, petName)
-    for _, child in ipairs(container:GetChildren()) do
-        if child.Name:lower() == petName:lower() and child:IsA("Model") then
-            return child
-        end
-        if child:IsA("Folder") or child:IsA("Model") then
-            local found = findPetModelByNameRecursive(child, petName)
-            if found then return found end
-        end
-    end
-    return nil
-end
-
-local function findPetModelByName(petName)
-    local searchContainers = {
-        workspace,
-        game:GetService("ReplicatedStorage"),
-        game:GetService("ServerStorage"),
-    }
-    for _, container in ipairs(searchContainers) do
-        if container then
-            local pet = findPetModelByNameRecursive(container, petName)
-            if pet then return pet end
-        end
-    end
-    return nil
-end
-
-
-local function setupPetGrowth(petModel, initialKg, initialAge)
-    if not petModel then return end
-
-    local kg = petModel:FindFirstChild("Kilogram")
-    if not kg then
-        kg = Instance.new("NumberValue")
-        kg.Name = "Kilogram"
-        kg.Value = initialKg or math.random(5, 10)
-        kg.Parent = petModel
-    else
-        kg.Value = initialKg or kg.Value
-    end
-
-    local age = petModel:FindFirstChild("Age")
-    if not age then
-        age = Instance.new("NumberValue")
-        age.Name = "Age"
-        age.Value = initialAge or math.random(1, 3)
-        age.Parent = petModel
-    else
-        age.Value = initialAge or age.Value
-    end
-
-    -- Create BillboardGui to display Kg and Age above pet
-    local primaryPart = petModel.PrimaryPart or petModel:FindFirstChild("HumanoidRootPart") or petModel:FindFirstChildWhichIsA("BasePart")
-    if primaryPart and not petModel:FindFirstChild("PetBillboardGui") then
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "PetBillboardGui"
-        billboard.Adornee = primaryPart
-        billboard.Size = UDim2.new(0, 140, 0, 55)
-        billboard.StudsOffset = Vector3.new(0, 3, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Parent = petModel
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.TextColor3 = Color3.new(1, 1, 1)
-        label.TextStrokeTransparency = 0.6
-        label.Font = Enum.Font.SourceSansBold
-        label.TextSize = 18
-        label.Parent = billboard
-
-        spawn(function()
-            while petModel.Parent do
-                label.Text = string.format("Kg: %.1f\nAge: %d", kg.Value, age.Value)
-                wait(1)
-            end
-        end)
-    end
-
-    -- Pet growth simulation (optional)
-    spawn(function()
-        while petModel.Parent do
-            wait(10)
-            kg.Value = kg.Value + 0.5
-            age.Value = age.Value + 1
-        end
-    end)
-end
-
-
--- Copy button logic
+-- Remote call
 button.MouseButton1Click:Connect(function()
-    local petName = petNameBox.Text
-    if petName == "" then
-        infoLabel.Text = "Please enter a pet name."
-        return
-    end
+	if selectedPetName == "" then
+		warn("Please select a pet from the dropdown.")
+		return
+	end
 
-    local petTemplate = findPetModelByName(petName)
-    if not petTemplate then
-        infoLabel.Text = "Pet not found in the game."
-        return
-    end
+	local age = tonumber(ageBox.Text) or 1
+	local kilo = tonumber(kgBox.Text) or 1
 
-    local petClone = petTemplate:Clone()
-    petClone.Name = petTemplate.Name
-
-    -- Set PrimaryPart if missing
-    if not petClone.PrimaryPart then
-        petClone.PrimaryPart = petClone:FindFirstChild("HumanoidRootPart") or petClone:FindFirstChildWhichIsA("BasePart")
-        if not petClone.PrimaryPart then
-            infoLabel.Text = "Pet model has no usable primary part."
-            return
-        end
-    end
-
-    -- Parse Kilogram and Age inputs, use defaults if invalid
-    local inputKg = parseNumberInput(kgBox.Text, math.random(5, 10))
-    local inputAge = parseNumberInput(ageBox.Text, math.random(1, 3))
-
-    petClone.Parent = player:WaitForChild("Backpack")
-
-    setupPetGrowth(petClone, inputKg, inputAge)
-
-    infoLabel.Text = string.format("Copied pet '%s' with %.1f kg and age %d. Press 'P' to place.", petName, inputKg, inputAge)
+	ReplicatedStorage:WaitForChild("AddPetToInventory"):FireServer(selectedPetName, age, kilo)
 end)
 
 
--- Press P to place pet from Backpack in front of player
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.P then
-        local backpack = player:WaitForChild("Backpack")
-        local petToPlace = nil
-        for _, item in ipairs(backpack:GetChildren()) do
-            if item:IsA("Model") and item:FindFirstChild("Kilogram") and item:FindFirstChild("Age") then
-                petToPlace = item
-                break
-            end
-        end
+--// ServerScript (ServerScriptService)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local remote = ReplicatedStorage:WaitForChild("AddPetToInventory")
 
-        if petToPlace then
-            local character = player.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                local root = character.HumanoidRootPart
-                petToPlace.Parent = workspace
-                petToPlace:SetPrimaryPartCFrame(root.CFrame * CFrame.new(0, 0, -5)) -- place 5 studs in front
-                infoLabel.Text = "Pet placed in front of you."
-            else
-                infoLabel.Text = "Character not found or missing HumanoidRootPart."
-            end
-        else
-            infoLabel.Text = "No pet found in Backpack to place."
-        end
-    end
+local function getFirstEmptySlot(folder)
+	for _, slot in ipairs(folder:GetChildren()) do
+		if not slot:FindFirstChild("Pet") then
+			return slot
+		end
+	end
+	return nil
+end
+
+remote.OnServerEvent:Connect(function(player, petName, age, kilo)
+	local petFolder = ReplicatedStorage:WaitForChild("PetModels")
+	local petModel = petFolder:FindFirstChild(petName)
+	if not petModel then
+		warn("Invalid pet name from client: " .. petName)
+		return
+	end
+
+	age = tonumber(age) or 1
+	kilo = tonumber(kilo) or 1
+
+	local inventory = player:FindFirstChild("Inventory")
+	if not inventory then warn("Inventory not found for player") return end
+
+	local quickSlots = inventory:FindFirstChild("QuickSlots")
+	local backpackSlots = inventory:FindFirstChild("BackpackSlots")
+
+	local petClone = petModel:Clone()
+	petClone.Name = "Pet"
+	petClone:SetAttribute("Age", age)
+	petClone:SetAttribute("Kilograms", kilo)
+
+	local slot = getFirstEmptySlot(quickSlots) or getFirstEmptySlot(backpackSlots)
+	if slot then
+		petClone.Parent = slot
+	else
+		warn("No available inventory slot.")
+		petClone:Destroy()
+	end
 end)

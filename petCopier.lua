@@ -2,6 +2,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
@@ -16,8 +17,8 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 
 -- Create Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 320, 0, 180)
-frame.Position = UDim2.new(0.5, -160, 0.5, -90)
+frame.Size = UDim2.new(0, 320, 0, 270)  -- Increased height to fit everything
+frame.Position = UDim2.new(0.5, -160, 0.5, -135)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
@@ -147,9 +148,23 @@ arrowButton.MouseButton1Click:Connect(function()
     dropdownList.Visible = not dropdownList.Visible
 end)
 
--- Hide dropdown if clicked outside (optional)
-screenGui.MouseButton1Down:Connect(function()
-    dropdownList.Visible = false
+-- Hide dropdown if clicked outside using UserInputService
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if dropdownList.Visible then
+            local mousePos = UserInputService:GetMouseLocation()
+            local guiPos = dropdownList.AbsolutePosition
+            local guiSize = dropdownList.AbsoluteSize
+
+            local insideX = mousePos.X >= guiPos.X and mousePos.X <= guiPos.X + guiSize.X
+            local insideY = mousePos.Y >= guiPos.Y and mousePos.Y <= guiPos.Y + guiSize.Y
+
+            if not (insideX and insideY) then
+                dropdownList.Visible = false
+            end
+        end
+    end
 end)
 
 -- Initial population of dropdown
